@@ -16,7 +16,7 @@ This program connects with the hardware, receives the data, and stores it in a f
              |                   |
              |                   |
         |----------------------------|                                  ______
-        |                            |                                  |----|
+        |                            |                                  |Text|
         |       Computer System      |---Sending Data to text files---->|----|
-        |          [Program]         |                                  |----|
+        |          [Program]         |                                  |File|
         |----------------------------|   
