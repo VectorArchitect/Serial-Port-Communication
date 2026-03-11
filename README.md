@@ -10,7 +10,7 @@ This program connects with the hardware, receives the data, and stores it in a f
         |----------------------------|
              |                   |
              |                   |
-    Send     |                   |  Recieve
+    Send     |                   |  Receive
              |                   |
              |                   |
              |                   |
