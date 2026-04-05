@@ -1,28 +1,57 @@
 import time
 import serial
+from crc import append_crc
 
-#definig the port connection and opening
-ser=serial.Serial(
-    port='',
-    baudrate=9600,
-    timeout=1
+#defining the port connection and opening it
+ser = serial.Serial(
+    port ='COM7',         #port name
+    baudrate = 115200,      #rate of communication or sending data (bits/sec)
+    bytesize=serial.EIGHTBITS,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    timeout = 1           #wait time for reading
 )
-
 try:
     if ser.is_open:
-        print(f"Connected to {ser.port}")
-        ser.write(b'Hello')
-        print("Data sent: Hello")
-        open('data_sent.txt', 'w').write('Hello')               #This writes the data into data_sent.txt file
-        time.sleep(0.1)
+        print("Connected to " + ser.port)
+        #print("marco".encode('utf-8'))
+    while True:
+        status=input("Send request?(y/n) '/exit': ").lower()
+        if status=='y':
+            #data = input("Enter hex values (space seperated): ").split()
+            data=[161, 3, 00, 15, 0, 15]
 
-        if ser.in_waiting > 0:
-            data=ser.readline().decode('utf-16').rstrip()       #This reads the data from ser and decodes it via using utf-16 format and strips the extra space of empty line at last
-            print(f"Data received : {data}")
-            open('data_recieved.txt', 'w').write(data)     #This writes the data into data_recieved.txt file
+            #print(data)
+            #data = [int(x, 16) for x in data]
+            #raw_payloads=bytes(data)  #converting data to bytes
+
+            packet=append_crc(data) #adding crc to data
+
+            bytes_sent=ser.write(packet)   #sending bytes packet and storing no. of bytes in bytes_sent
+            print(f"Sent: {packet}")
+            print(packet)
+            print(f"sent: {packet.hex(' ')}")
+            print(f"Total bytes written: {bytes_sent}")
+
+            time.sleep(0.5)  # even if data not received the program will not shut for this amount of time
+
+            #line = ser.read(90)  
+
+            line = ser.readline(35).decode('utf-8').rstrip() #will read upto 35 values of input
+            line_length = len(line)
+
+            print(line_length)
+            for w in line:
+                print(f"{w:02x}")
+                print(f"{w:016b}")
+            print(line)
+
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8').rstrip()
+                print("Received : " + line)
+        elif status=='/exit':
+
+            break
+
 except Exception as e:
-    print(f"Error: {e}")
-finally:
-    if ser.is_open:
-        ser.close()
-        print("Serial port closed.")
+    print(f"Erorr: {e}")
