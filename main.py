@@ -31,6 +31,7 @@ try:
             print(f"Sent: {packet}")
             print(packet)
             print(f"sent: {packet.hex(' ')}")
+            open('data_sent.txt', 'w').write('Hello')
             print(f"Total bytes written: {bytes_sent}")
 
             time.sleep(0.5)  # even if data not received the program will not shut for this amount of time
@@ -48,6 +49,7 @@ try:
 
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8').rstrip()
+                open('data_recieved.txt', 'w').write(data)
                 print("Received : " + line)
         elif status=='/exit':
 
