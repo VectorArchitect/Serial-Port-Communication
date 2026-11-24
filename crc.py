@@ -1,72 +1,77 @@
-#this particular file acts as a library not just a program used by other 2 programs
-# CRC-16 | Polynomial = 0xA001
+"""CRC-16 helpers for the serial communication experiments.
 
-def calcrc(data, ldata):      #calculating CRC and returning ch, cl
-    ch = 0xFF                 #setting ch & cl as 255/0xFF
-    cl = 0xFF
+The implementation uses polynomial 0xA001 with an initial value of 0xFFFF.
+Packets append the CRC low byte first (Modbus wire order).
+"""
 
-    for i in range(ldata + 1):        #first loop takes bytes in the list of data
-        cl = cl ^ data[i]                #now xor each byte
-        for ctrc in range(8):         #second loop takes bits in the bytes
-            #if ch have '1' at last then we will add last 1 to
-            carryh = ch % 2
-            #if cl have '1' at last then we will do shift and xor
-            carryl = cl % 2
-            ch = ch // 2
-            cl = (carryh * 128) + (cl // 2)
-            if carryl != 0:      #last me 1 hoga to xor hoga
-                ch = ch ^ 0xA0
-                cl = cl ^ 0x01
-    return ch, cl  # returns (CRCH, CRCL)      #this will return Cl first then Ch NOT Ch then Cl
+
+def calcrc(data, ldata=None):
+    """Return (crc_high, crc_low) for the first ldata + 1 bytes.
+
+    ldata is retained for compatibility with the original project API.
+    When omitted, all bytes in data are processed.
+    """
+    values = list(data)
+    if ldata is None:
+        ldata = len(values) - 1
+    if not values or not isinstance(ldata, int) or ldata < 0 or ldata >= len(values):
+        raise ValueError("CRC input must contain at least one byte and ldata must be a valid index.")
+
+    selected = values[: ldata + 1]
+    if any(not isinstance(value, int) or not 0 <= value <= 0xFF for value in selected):
+        raise ValueError("CRC input values must be integers between 0 and 255.")
+
+    crc = 0xFFFF
+    for value in selected:
+        crc ^= value
+        for _ in range(8):
+            if crc & 1:
+                crc = (crc >> 1) ^ 0xA001
+            else:
+                crc >>= 1
+
+    return (crc >> 8) & 0xFF, crc & 0xFF
+
+
+def append_crc(data_bytes):
+    """Append a Modbus-order CRC to bytes-like input or an iterable of bytes.
+
+    Returns bytes when the input is bytes-like, otherwise a list.
+    """
+    values = list(data_bytes)
+    if not values:
+        raise ValueError("Cannot append a CRC to an empty packet.")
+    if any(not isinstance(value, int) or not 0 <= value <= 0xFF for value in values):
+        raise ValueError("Packet values must be integers between 0 and 255.")
+
+    crc_high, crc_low = calcrc(values)
+    packet = values + [crc_low, crc_high]
+    return bytes(packet) if isinstance(data_bytes, (bytes, bytearray, memoryview)) else packet
 
 
 def verify_packet(packet_bytes):
-    #re-calculates the crc received along with data and verifies it
-    #will be used by server when received request from client
-    """
-    Given a full packet (data + 2 CRC bytes at end),
-    verifies CRC and returns (crch, crcl, is_valid).
-    """
-    data = list(packet_bytes[:-2])
-    received_crch = packet_bytes[-2]
-    received_crcl = packet_bytes[-1]
-    ldata = len(data) - 1
+    """Return (crc_high, crc_low, is_valid) for a packet with trailing CRC."""
+    packet = list(packet_bytes)
+    if len(packet) < 3:
+        raise ValueError("A packet must contain at least one data byte and two CRC bytes.")
+    if any(not isinstance(value, int) or not 0 <= value <= 0xFF for value in packet):
+        raise ValueError("Packet values must be integers between 0 and 255.")
 
-    crcl, crch = calcrc(data, ldata)
-    is_valid = (crch == received_crch) and (crcl == received_crcl)
-    return crch, crcl, is_valid
+    crc_high, crc_low = calcrc(packet[:-2])
+    is_valid = packet[-2:] == [crc_low, crc_high]
+    return crc_high, crc_low, is_valid
 
 
-def append_crc(data_bytes):          #this just appends CRC to the data
-    """
-    Given raw data bytes, computes and appends CRC bytes.
-    Returns full packet bytes.
-    """
-    data = list(data_bytes)
-    ldata = len(data) - 1
-    crcl, crch = calcrc(data, ldata)
-    return data_bytes + ([crch, crcl])#bytes
-
-
-if __name__ == "__main__":      #use to run above code in this file but is ignored when pther files import it
-    packet = input("Enter hex values (space separated): ").split()
-    packet_int = [int(x, 16) for x in packet]
-
-    # new=append_crc(packet_int)
-    # print(F"new: {new}")
-
-    if len(packet_int) > 6:
-        data = packet_int[:6]
-        crc = packet_int[6:8]   #puts 7 & 8 th value counting form 1 not 0
-        ldata = len(data) - 1
-        crcl, crch = calcrc(data, ldata)
-        print(f"Calculated → CRCH: {crch:02X}  CRCL: {crcl:02X}")
-        if crc[0] == crch and crc[1] == crcl:
-            print("✅ Data is Intact")
+if __name__ == "__main__":
+    raw = input("Enter hex values (space separated): ").split()
+    try:
+        values = [int(value, 16) for value in raw]
+        if len(values) >= 3:
+            crc_high, crc_low, valid = verify_packet(values)
+            print(f"Calculated CRC (low byte first): {crc_low:02X} {crc_high:02X}")
+            print("Data is Intact" if valid else "Data is varied!")
         else:
-            print("❌ Data is Varied!")
-    else:
-        ldata = len(packet_int) - 1
-        crcl, crch = calcrc(packet_int, ldata)
-        print(f"Calculated → CRCH: {crch:02X} CRCL: {crcl:02X}  ")
-
+            crc_high, crc_low = calcrc(values)
+            print(f"Calculated CRC: high={crc_high:02X}, low={crc_low:02X}")
+    except ValueError as error:
+        print(f"Invalid input: {error}")
