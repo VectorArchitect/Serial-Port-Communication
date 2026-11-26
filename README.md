@@ -56,7 +56,7 @@ cd Serial-Port-Communication
 **Windows (PowerShell)**
 ```powershell
 py -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\\.venv\\Scripts\\Activate.ps1
 ```
 
 **macOS / Linux**
@@ -103,6 +103,16 @@ The current dashboard renders a hard-coded sample packet. It is useful for explo
 
 The implementation is marked CRC-16 with polynomial `0xA001`. CRC variants differ in initialization, reflection, final XOR, and byte order; verify these settings against the embedded device protocol before using it in production.
 
+## Run tests
+
+The hardware-independent CRC regression tests use Python's standard library and do not require a connected serial device:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The GitHub Actions workflow runs this suite on Python 3.10, 3.11, and 3.12 for pushes and pull requests. The serial hardware and Streamlit dashboard still require separate manual verification.
+
 ## Configuration notes
 
 - Select the correct serial port and baud rate for your device.
@@ -115,7 +125,7 @@ The implementation is marked CRC-16 with polynomial `0xA001`. CRC variants diffe
 - [ ] Move serial-port settings out of the source code and into runtime configuration.
 - [ ] Connect the Streamlit dashboard to a real serial data source.
 - [ ] Add packet-length and CRC validation before decoding incoming data.
-- [ ] Add automated tests for CRC calculations and packet parsing.
+- [ ] Add automated tests for serial response framing and payload parsing.
 - [ ] Improve error handling, logging, and graceful serial-port cleanup.
 
 ## Contributing
